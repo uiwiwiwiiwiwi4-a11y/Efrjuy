@@ -1,0 +1,275 @@
+-- Lexushub external key-entry loader for Jnkie.
+-- Run this loader in the executor. Do NOT run the protected download URL directly.
+-- This provides the one key UI; the protected Original Code contains no second key UI.
+
+local SCRIPT_ID = "2738ac27d59d7ed3a80904109dae309e5d98c5c3038d893e779b0c0cba5c2f89"
+local SDK_URL = "https://jnkie.com/sdk/library.lua"
+local SERVICE_NAME = "Lexushub"
+local JNKIE_IDENTIFIER = "1208626"
+local KEY_PROVIDER = "Lexushub provider"
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+local function getGuiParent()
+    if typeof(gethui) == "function" then
+        local ok, parent = pcall(gethui)
+        if ok and parent then return parent end
+    end
+    local ok, parent = pcall(function() return CoreGui end)
+    if ok and parent then return parent end
+    return LocalPlayer and LocalPlayer:FindFirstChildOfClass("PlayerGui")
+end
+
+local GUI_PARENT = getGuiParent()
+if not GUI_PARENT then
+    warn("[Lexushub] Could not find a UI parent for the key loader.")
+    return
+end
+
+local oldGui = GUI_PARENT:FindFirstChild("LexushubJnkKeyLoader")
+if oldGui then oldGui:Destroy() end
+
+local COLORS = {
+    background = Color3.fromRGB(13, 16, 23),
+    panel = Color3.fromRGB(21, 26, 36),
+    panel2 = Color3.fromRGB(29, 36, 48),
+    border = Color3.fromRGB(54, 66, 83),
+    text = Color3.fromRGB(241, 245, 249),
+    muted = Color3.fromRGB(151, 164, 181),
+    accent = Color3.fromRGB(255, 205, 76),
+    accentText = Color3.fromRGB(25, 25, 28),
+    error = Color3.fromRGB(255, 111, 111),
+    success = Color3.fromRGB(115, 225, 164),
+}
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "LexushubJnkKeyLoader"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 2000000
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = GUI_PARENT
+
+local shade = Instance.new("Frame")
+shade.Name = "Backdrop"
+shade.Size = UDim2.fromScale(1, 1)
+shade.BackgroundColor3 = Color3.new(0, 0, 0)
+shade.BackgroundTransparency = 0.42
+shade.BorderSizePixel = 0
+shade.Parent = gui
+
+local card = Instance.new("Frame")
+card.Name = "KeyCard"
+card.AnchorPoint = Vector2.new(0.5, 0.5)
+card.Position = UDim2.fromScale(0.5, 0.5)
+card.Size = UDim2.fromOffset(440, 330)
+card.BackgroundColor3 = COLORS.background
+card.BorderSizePixel = 0
+card.Parent = shade
+local cardCorner = Instance.new("UICorner")
+cardCorner.CornerRadius = UDim.new(0, 14)
+cardCorner.Parent = card
+local cardStroke = Instance.new("UIStroke")
+cardStroke.Color = COLORS.border
+cardStroke.Transparency = 0.12
+cardStroke.Thickness = 1
+cardStroke.Parent = card
+
+local function label(name, text, position, size, textSize, color, font)
+    local object = Instance.new("TextLabel")
+    object.Name = name
+    object.BackgroundTransparency = 1
+    object.Position = position
+    object.Size = size
+    object.Font = font or Enum.Font.Gotham
+    object.Text = text
+    object.TextSize = textSize
+    object.TextColor3 = color
+    object.TextXAlignment = Enum.TextXAlignment.Left
+    object.TextYAlignment = Enum.TextYAlignment.Center
+    object.TextWrapped = true
+    object.Parent = card
+    return object
+end
+
+local title = label("Title", "LEXUSHUB  /  KEY ACCESS", UDim2.fromOffset(22, 18), UDim2.new(1, -74, 0, 27), 17, COLORS.text, Enum.Font.GothamBold)
+local subtitle = label("Subtitle", "Enter your Jnkie key to load the protected script.", UDim2.fromOffset(22, 49), UDim2.new(1, -44, 0, 25), 11, COLORS.muted)
+
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "Close"
+closeButton.Position = UDim2.new(1, -48, 0, 16)
+closeButton.Size = UDim2.fromOffset(30, 30)
+closeButton.BackgroundColor3 = COLORS.panel2
+closeButton.BorderSizePixel = 0
+closeButton.Text = "×"
+closeButton.TextColor3 = COLORS.text
+closeButton.TextSize = 20
+closeButton.Font = Enum.Font.Gotham
+closeButton.Parent = card
+Instance.new("UICorner", closeButton).CornerRadius = UDim.new(0, 8)
+closeButton.Activated:Connect(function() gui:Destroy() end)
+
+local keyBox = Instance.new("TextBox")
+keyBox.Name = "KeyInput"
+keyBox.Position = UDim2.fromOffset(22, 88)
+keyBox.Size = UDim2.new(1, -44, 0, 44)
+keyBox.BackgroundColor3 = COLORS.panel
+keyBox.BorderSizePixel = 0
+keyBox.ClearTextOnFocus = false
+keyBox.Font = Enum.Font.Gotham
+keyBox.PlaceholderText = "Paste your key here"
+keyBox.PlaceholderColor3 = COLORS.muted
+keyBox.Text = ""
+keyBox.TextColor3 = COLORS.text
+keyBox.TextSize = 13
+keyBox.TextXAlignment = Enum.TextXAlignment.Left
+keyBox.Parent = card
+Instance.new("UICorner", keyBox).CornerRadius = UDim.new(0, 8)
+local keyPadding = Instance.new("UIPadding")
+keyPadding.PaddingLeft = UDim.new(0, 12)
+keyPadding.PaddingRight = UDim.new(0, 12)
+keyPadding.Parent = keyBox
+
+local keyLinkBox = Instance.new("TextBox")
+keyLinkBox.Name = "KeyLink"
+keyLinkBox.Position = UDim2.fromOffset(22, 141)
+keyLinkBox.Size = UDim2.new(1, -44, 0, 34)
+keyLinkBox.BackgroundColor3 = COLORS.panel
+keyLinkBox.BorderSizePixel = 0
+keyLinkBox.ClearTextOnFocus = false
+keyLinkBox.Font = Enum.Font.Gotham
+keyLinkBox.PlaceholderText = "Your Get Key link will appear here"
+keyLinkBox.PlaceholderColor3 = COLORS.muted
+keyLinkBox.Text = ""
+keyLinkBox.TextColor3 = COLORS.muted
+keyLinkBox.TextSize = 10
+keyLinkBox.TextXAlignment = Enum.TextXAlignment.Left
+keyLinkBox.TextTruncate = Enum.TextTruncate.AtEnd
+keyLinkBox.Parent = card
+Instance.new("UICorner", keyLinkBox).CornerRadius = UDim.new(0, 8)
+local linkPadding = Instance.new("UIPadding")
+linkPadding.PaddingLeft = UDim.new(0, 10)
+linkPadding.PaddingRight = UDim.new(0, 10)
+linkPadding.Parent = keyLinkBox
+
+local status = label("Status", "Ready. Get a key, then paste it above.", UDim2.fromOffset(22, 184), UDim2.new(1, -44, 0, 36), 11, COLORS.muted)
+status.TextYAlignment = Enum.TextYAlignment.Top
+
+local function makeButton(name, text, position, size, primary)
+    local button = Instance.new("TextButton")
+    button.Name = name
+    button.Position = position
+    button.Size = size
+    button.BackgroundColor3 = primary and COLORS.accent or COLORS.panel2
+    button.BorderSizePixel = 0
+    button.AutoButtonColor = true
+    button.Text = text
+    button.TextColor3 = primary and COLORS.accentText or COLORS.text
+    button.TextSize = 12
+    button.Font = Enum.Font.GothamBold
+    button.TextWrapped = true
+    button.Parent = card
+    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
+    return button
+end
+
+local getKeyButton = makeButton("GetKey", "Get Key Link", UDim2.fromOffset(22, 232), UDim2.new(0.5, -27, 0, 40), false)
+local loadButton = makeButton("LoadScript", "Load Script With Key", UDim2.new(0.5, 5, 0, 232), UDim2.new(0.5, -27, 0, 40), true)
+label("Footer", "Authentication is handled once by Jnkie's protected loader.", UDim2.fromOffset(22, 286), UDim2.new(1, -44, 0, 22), 9, COLORS.muted)
+
+local function setStatus(text, color)
+    if status and status.Parent then
+        status.Text = tostring(text or "")
+        status.TextColor3 = color or COLORS.muted
+    end
+end
+
+local function safeClipboard(text)
+    if type(setclipboard) == "function" then
+        local ok = pcall(setclipboard, text)
+        return ok
+    end
+    return false
+end
+
+local sdkOk, Junkie = pcall(function()
+    local httpGet = game.HttpGet
+    if type(loadstring) ~= "function" or type(httpGet) ~= "function" then
+        error("This loader requires an executor with HttpGet and loadstring support.")
+    end
+    return loadstring(game:HttpGet(SDK_URL))()
+end)
+if not sdkOk or type(Junkie) ~= "table" then
+    setStatus("Could not initialize Jnkie SDK: " .. tostring(Junkie), COLORS.error)
+    getKeyButton.Active = false
+    loadButton.Active = false
+    return
+end
+
+Junkie.script_id = SCRIPT_ID
+Junkie.service = SERVICE_NAME
+Junkie.identifier = JNKIE_IDENTIFIER
+Junkie.provider = KEY_PROVIDER
+
+getKeyButton.Activated:Connect(function()
+    getKeyButton.Active = false
+    getKeyButton.Text = "Requesting..."
+    setStatus("Requesting a key link from Jnkie...", COLORS.muted)
+    task.spawn(function()
+        local callOk, link, err = pcall(Junkie.get_key_link)
+        getKeyButton.Active = true
+        getKeyButton.Text = "Get Key Link"
+        if not callOk then
+            setStatus("Could not request a link: " .. tostring(link), COLORS.error)
+            return
+        end
+        if type(link) ~= "string" or link == "" then
+            setStatus("Jnkie did not return a key link: " .. tostring(err or "try again"), COLORS.error)
+            return
+        end
+        keyLinkBox.Text = link
+        local copied = safeClipboard(link)
+        setStatus(copied and "Key link copied. Open it, complete the key steps, then paste your key above." or "Key link is shown below. Copy it, complete the key steps, then paste your key above.", COLORS.success)
+    end)
+end)
+
+loadButton.Activated:Connect(function()
+    local key = tostring(keyBox.Text or ""):gsub("%s+", "")
+    if key == "" then
+        setStatus("Paste your Jnkie key before loading.", COLORS.error)
+        return
+    end
+    if type(getgenv) ~= "function" then
+        setStatus("This executor does not expose getgenv(), required by the Jnkie loader.", COLORS.error)
+        return
+    end
+    local envOk, env = pcall(getgenv)
+    if not envOk or type(env) ~= "table" then
+        setStatus("Could not access the executor environment for Jnkie authentication.", COLORS.error)
+        return
+    end
+    env.SCRIPT_KEY = key
+    loadButton.Active = false
+    loadButton.Text = "Loading..."
+    getKeyButton.Active = false
+    setStatus("Submitting the key to Jnkie's protected loader...", COLORS.muted)
+    task.spawn(function()
+        local callOk, err = pcall(function()
+            Junkie.load_script()
+        end)
+        if not callOk then
+            loadButton.Active = true
+            loadButton.Text = "Load Script With Key"
+            getKeyButton.Active = true
+            setStatus("Jnkie loader error: " .. tostring(err), COLORS.error)
+            return
+        end
+        setStatus("Jnkie loader call completed. If the Lexushub window opened, close this loader with ×.", COLORS.success)
+        loadButton.Active = true
+        loadButton.Text = "Load Script With Key"
+        getKeyButton.Active = true
+    end)
+end)
