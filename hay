@@ -1,12 +1,37 @@
--- Lexushub external key-entry loader for Jnkie.
--- Run this loader in the executor. Do NOT run the protected download URL directly.
--- This provides the one key UI; the protected Original Code contains no second key UI.
+
 
 local SCRIPT_ID = "2738ac27d59d7ed3a80904109dae309e5d98c5c3038d893e779b0c0cba5c2f89"
 local SDK_URL = "https://jnkie.com/sdk/library.lua"
 local SERVICE_NAME = "Lexushub"
 local JNKIE_IDENTIFIER = "1208626"
 local KEY_PROVIDER = "Lexushub provider"
+local KEY_FILE = "verified_key.txt"
+local LEGACY_KEY_FILE = "LxBuildStorage/verified_key.txt"
+
+local function readKeyFile(path)
+    if type(readfile) ~= "function" then return nil end
+    local ok, value = pcall(readfile, path)
+    if not ok or type(value) ~= "string" then return nil end
+    value = value:gsub("^%s+", ""):gsub("%s+$", "")
+    return value ~= "" and value or nil
+end
+
+local function saveKeyToFolder(key)
+    if type(writefile) ~= "function" then return false end
+    local ok = pcall(writefile, KEY_FILE, tostring(key or ""))
+    return ok
+end
+
+local function loadSavedKey()
+    local saved = readKeyFile(KEY_FILE)
+    if saved then return saved end
+    -- Migrate keys saved by an earlier loader inside LxBuildStorage.
+    local legacy = readKeyFile(LEGACY_KEY_FILE)
+    if legacy then saveKeyToFolder(legacy); return legacy end
+    return nil
+end
+
+local SAVED_KEY = loadSavedKey()
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -120,9 +145,9 @@ keyBox.BackgroundColor3 = COLORS.panel
 keyBox.BorderSizePixel = 0
 keyBox.ClearTextOnFocus = false
 keyBox.Font = Enum.Font.Gotham
-keyBox.PlaceholderText = "Paste your key here"
+keyBox.PlaceholderText = SAVED_KEY and "Saved key loaded — edit if needed" or "Paste your key here"
 keyBox.PlaceholderColor3 = COLORS.muted
-keyBox.Text = ""
+keyBox.Text = SAVED_KEY or ""
 keyBox.TextColor3 = COLORS.text
 keyBox.TextSize = 13
 keyBox.TextXAlignment = Enum.TextXAlignment.Left
@@ -252,10 +277,11 @@ loadButton.Activated:Connect(function()
         return
     end
     env.SCRIPT_KEY = key
+    local keySaved = saveKeyToFolder(key)
     loadButton.Active = false
     loadButton.Text = "Loading..."
     getKeyButton.Active = false
-    setStatus("Submitting the key to Jnkie's protected loader...", COLORS.muted)
+    setStatus(keySaved and "Key saved in the workspace root; submitting to Jnkie..." or "Submitting to Jnkie; file storage is unavailable in this executor.", COLORS.muted)
     task.spawn(function()
         local callOk, err = pcall(function()
             Junkie.load_script()
