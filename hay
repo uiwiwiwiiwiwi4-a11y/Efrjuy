@@ -261,8 +261,19 @@ getKeyButton.Activated:Connect(function()
     end)
 end)
 
-loadButton.Activated:Connect(function()
-    local key = tostring(keyBox.Text or ""):gsub("%s+", "")
+local loadingAttempt = false
+local function restoreButtons()
+    if loadButton and loadButton.Parent then
+        loadButton.Active = true
+        loadButton.Text = "Load Script With Key"
+    end
+    if getKeyButton and getKeyButton.Parent then getKeyButton.Active = true end
+    loadingAttempt = false
+end
+
+local function startProtectedScript(rawKey, fromSavedKey)
+    if loadingAttempt then return end
+    local key = tostring(rawKey or ""):gsub("%s+", "")
     if key == "" then
         setStatus("Paste your Jnkie key before loading.", COLORS.error)
         return
@@ -276,26 +287,70 @@ loadButton.Activated:Connect(function()
         setStatus("Could not access the executor environment for Jnkie authentication.", COLORS.error)
         return
     end
-    env.SCRIPT_KEY = key
+
+    loadingAttempt = true
     local keySaved = saveKeyToFolder(key)
+    env.SCRIPT_KEY = key
+    local runToken = tostring(os.time()) .. "-" .. tostring(math.floor(os.clock() * 1000000)) .. "-" .. tostring(math.random(100000, 999999))
+    env.LEXUSHUB_LOADER_RUN_ID = runToken
+    env.LEXUSHUB_PROTECTED_BOOT_RUN_ID = nil
     loadButton.Active = false
-    loadButton.Text = "Loading..."
+    loadButton.Text = fromSavedKey and "Checking Saved Key..." or "Loading..."
     getKeyButton.Active = false
-    setStatus(keySaved and "Key saved in the workspace root; submitting to Jnkie..." or "Submitting to Jnkie; file storage is unavailable in this executor.", COLORS.muted)
+    if fromSavedKey then
+        setStatus("Checking your saved key with Jnkie...", COLORS.muted)
+    elseif keySaved then
+        setStatus("Key saved in the workspace root; submitting to Jnkie...", COLORS.muted)
+    else
+        setStatus("Submitting to Jnkie; file storage is unavailable in this executor.", COLORS.muted)
+    end
+
     task.spawn(function()
-        local callOk, err = pcall(function()
-            Junkie.load_script()
+        local callFinished = false
+        local callOk, callError
+        task.spawn(function()
+            callOk, callError = pcall(function() Junkie.load_script() end)
+            callFinished = true
         end)
-        if not callOk then
-            loadButton.Active = true
-            loadButton.Text = "Load Script With Key"
-            getKeyButton.Active = true
-            setStatus("Jnkie loader error: " .. tostring(err), COLORS.error)
-            return
+
+        local startedAt = os.clock()
+        local returnedAt
+        while gui and gui.Parent and os.clock() - startedAt < 45 do
+            if env.LEXUSHUB_PROTECTED_BOOT_RUN_ID == runToken then
+                setStatus("Key accepted. Opening Lexushub...", COLORS.success)
+                task.wait(0.15)
+                if gui and gui.Parent then gui:Destroy() end
+                return
+            end
+            if callFinished then
+                returnedAt = returnedAt or os.clock()
+                if os.clock() - returnedAt >= 0.75 then
+                    if not callOk then
+                        setStatus("Jnkie loader error: " .. tostring(callError), COLORS.error)
+                    else
+                        setStatus("Jnkie did not start the protected source. Check the key and script access, then try again.", COLORS.error)
+                    end
+                    restoreButtons()
+                    return
+                end
+            end
+            task.wait(0.1)
         end
-        setStatus("Jnkie loader call completed. If the Lexushub window opened, close this loader with ×.", COLORS.success)
-        loadButton.Active = true
-        loadButton.Text = "Load Script With Key"
-        getKeyButton.Active = true
+        if gui and gui.Parent and loadingAttempt then
+            setStatus("Timed out waiting for Jnkie to start the protected source. You can retry.", COLORS.error)
+            restoreButtons()
+        end
     end)
+end
+
+loadButton.Activated:Connect(function()
+    startProtectedScript(keyBox.Text, false)
 end)
+
+-- Saved keys are checked automatically at startup. A rejected key leaves the UI
+-- open with the saved value prefilled so the user can replace it.
+if SAVED_KEY then
+    task.delay(0.6, function()
+        if gui and gui.Parent then startProtectedScript(SAVED_KEY, true) end
+    end)
+end
