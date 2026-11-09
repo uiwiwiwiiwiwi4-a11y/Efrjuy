@@ -36,6 +36,7 @@ local SAVED_KEY = loadSavedKey()
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
+local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 
 local function getGuiParent()
@@ -212,6 +213,17 @@ local function setStatus(text, color)
     end
 end
 
+local function notify(text)
+    local ok = pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "LEXUSHUB",
+            Text = tostring(text or ""),
+            Duration = 5,
+        })
+    end)
+    if not ok then warn("[Lexushub] " .. tostring(text or "")) end
+end
+
 local function safeClipboard(text)
     if type(setclipboard) == "function" then
         local ok = pcall(setclipboard, text)
@@ -325,11 +337,22 @@ local function startProtectedScript(rawKey, fromSavedKey)
             if callFinished then
                 returnedAt = returnedAt or os.clock()
                 if os.clock() - returnedAt >= 0.75 then
+                    local failureMessage
+                    local invalidKey = false
                     if not callOk then
-                        setStatus("Jnkie loader error: " .. tostring(callError), COLORS.error)
+                        local errorText = tostring(callError)
+                        local lowerError = string.lower(errorText)
+                        invalidKey = string.find(lowerError, "key_invalid", 1, true) ~= nil
+                            or string.find(lowerError, "invalid key", 1, true) ~= nil
+                            or string.find(lowerError, "not valid", 1, true) ~= nil
+                        failureMessage = invalidKey
+                            and "Jnkie rejected this key as invalid. Replace it with a new key."
+                            or ("Jnkie loader error: " .. errorText)
                     else
-                        setStatus("Jnkie did not start the protected source. Check the key and script access, then try again.", COLORS.error)
+                        failureMessage = "Jnkie did not start the protected source. The key may be invalid or access may be denied."
                     end
+                    setStatus(failureMessage, COLORS.error)
+                    notify(invalidKey and "This key is invalid. Replace it and try again." or "Key check failed; no protected script startup was confirmed.")
                     restoreButtons()
                     return
                 end
@@ -338,6 +361,7 @@ local function startProtectedScript(rawKey, fromSavedKey)
         end
         if gui and gui.Parent and loadingAttempt then
             setStatus("Timed out waiting for Jnkie to start the protected source. You can retry.", COLORS.error)
+            notify("Key check timed out; no successful script startup was confirmed.")
             restoreButtons()
         end
     end)
@@ -347,8 +371,8 @@ loadButton.Activated:Connect(function()
     startProtectedScript(keyBox.Text, false)
 end)
 
--- Saved keys are checked automatically at startup. A rejected key leaves the UI
--- open with the saved value prefilled so the user can replace it.
+-- Check a saved key once at startup. Jnkie's protected loader validates it before
+-- starting the protected source; failures leave this UI open so the key can be replaced.
 if SAVED_KEY then
     task.delay(0.6, function()
         if gui and gui.Parent then startProtectedScript(SAVED_KEY, true) end
