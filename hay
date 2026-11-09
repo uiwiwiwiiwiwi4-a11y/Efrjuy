@@ -371,10 +371,3 @@ loadButton.Activated:Connect(function()
     startProtectedScript(keyBox.Text, false)
 end)
 
--- Check a saved key once at startup. Jnkie's protected loader validates it before
--- starting the protected source; failures leave this UI open so the key can be replaced.
-if SAVED_KEY then
-    task.delay(0.6, function()
-        if gui and gui.Parent then startProtectedScript(SAVED_KEY, true) end
-    end)
-end
